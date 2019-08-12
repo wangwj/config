@@ -106,12 +106,12 @@ You can find published releases on Maven Central.
     <dependency>
         <groupId>com.typesafe</groupId>
         <artifactId>config</artifactId>
-        <version>1.3.2</version>
+        <version>1.3.4</version>
     </dependency>
 
 sbt dependency:
 
-    libraryDependencies += "com.typesafe" % "config" % "1.3.2"
+    libraryDependencies += "com.typesafe" % "config" % "1.3.4"
 
 Link for direct download if you don't use a dependency manager:
 
@@ -675,6 +675,24 @@ value just disappear if the substitution is not found:
     // this array could have one or two elements
     path = [ "a", ${?OPTIONAL_A} ]
 
+By setting the JVM property `-Dconfig.override_with_env_vars=true`
+it is possible to override any configuration value using environment
+variables even if an explicit substitution is not specified.
+
+The environment variable value will override any pre-existing value
+and also any value provided as Java property.
+
+With this option enabled only environment variables starting with
+`CONFIG_FORCE_` are considered, and the name is mangled as follows:
+
+  - the prefix `CONFIG_FORCE_` is stripped
+  - single underscore(`_`) is converted into a dot(`.`)
+  - double underscore(`__`) is converted into a dash(`-`)
+  - triple underscore(`___`) is converted into a single underscore(`_`)
+
+i.e. The environment variable `CONFIG_FORCE_a_b__c___d` set the
+configuration key `a.b-c_d`
+
 ### Concatenation
 
 Values _on the same line_ are concatenated (for strings and
@@ -688,9 +706,12 @@ string `foo` are concatenated into a string `42 foo`:
 When concatenating values into a string, leading and trailing
 whitespace is stripped but whitespace between values is kept.
 
-Unquoted strings also support substitutions of course:
+Quoted or unquoted strings can also concatenate with substitutions of course:
 
     tasks-url : ${base-url}/tasks
+    tasks-url : ${base-url}"tasks:colon-must-be-quoted"
+
+Note: the `${}` syntax must be outside the quotes!
 
 A concatenation can refer to earlier values of the same field:
 
@@ -856,6 +877,7 @@ format.
   * Cedi Config https://github.com/ccadllc/cedi-config
   * Cfg https://github.com/carueda/cfg
   * circe-config https://github.com/circe/circe-config
+  * args4c https://github.com/aaronp/args4c
 
 #### Clojure wrappers for the Java library
 
@@ -866,7 +888,8 @@ format.
 
 #### Scala port
 
-  * SHocon https://github.com/unicredit/shocon (work with both Scala and Scala.Js)
+  * SHocon https://github.com/akka-js/shocon (Supports Scala.js and Scala Native)
+  * sconfig https://github.com/ekrich/sconfig (Supports JVM, Scala Native, and Scala.js)
 
 #### Ruby port
 
@@ -892,6 +915,10 @@ format.
 
   * https://github.com/akkadotnet/HOCON
 
+#### Rust port
+
+  * https://github.com/mockersf/hocon.rs
+
 #### Linting tool
 
    * A web based linting tool http://www.hoconlint.com/
@@ -900,7 +927,7 @@ format.
 
    * https://hocon-playground.herokuapp.com/
 
-# Maintanance notes
+# Maintenance notes
 
 ## License
 

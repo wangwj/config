@@ -32,6 +32,7 @@ import com.typesafe.config.impl.SimpleIncluder.NameSource;
  * For use only by the {@link com.typesafe.config} package.
  */
 public class ConfigImpl {
+    private static final String ENV_VAR_OVERRIDE_PREFIX = "CONFIG_FORCE_";
 
     private static class LoaderCache {
         private Config currentSystemProperties;
@@ -301,7 +302,13 @@ public class ConfigImpl {
         final Properties systemProperties = System.getProperties();
         final Properties systemPropertiesCopy = new Properties();
         synchronized (systemProperties) {
-            systemPropertiesCopy.putAll(systemProperties);
+            for (Map.Entry<Object, Object> entry: systemProperties.entrySet()) {
+                // Java 11 introduces 'java.version.date', but we don't want that to
+                // overwrite 'java.version'
+                if (!entry.getKey().toString().startsWith("java.version.")) {
+                    systemPropertiesCopy.put(entry.getKey(), entry.getValue());
+                }
+            }
         }
         return systemPropertiesCopy;
     }
@@ -358,6 +365,43 @@ public class ConfigImpl {
         // ConfigFactory.invalidateCaches() relies on this having the side
         // effect that it drops all caches
         EnvVariablesHolder.envVariables = loadEnvVariables();
+    }
+
+
+
+    private static AbstractConfigObject loadEnvVariablesOverrides() {
+        Map<String, String> env = new HashMap(System.getenv());
+        Map<String, String> result = new HashMap(System.getenv());
+
+        for (String key : env.keySet()) {
+            if (key.startsWith(ENV_VAR_OVERRIDE_PREFIX)) {
+                result.put(ConfigImplUtil.envVariableAsProperty(key, ENV_VAR_OVERRIDE_PREFIX), env.get(key));
+            }
+        }
+
+        return PropertiesParser.fromStringMap(newSimpleOrigin("env variables overrides"), result);
+    }
+
+    private static class EnvVariablesOverridesHolder {
+        static volatile AbstractConfigObject envVariables = loadEnvVariablesOverrides();
+    }
+
+    static AbstractConfigObject envVariablesOverridesAsConfigObject() {
+        try {
+            return EnvVariablesOverridesHolder.envVariables;
+        } catch (ExceptionInInitializerError e) {
+            throw ConfigImplUtil.extractInitializerError(e);
+        }
+    }
+
+    public static Config envVariablesOverridesAsConfig() {
+        return envVariablesOverridesAsConfigObject().toConfig();
+    }
+
+    public static void reloadEnvVariablesOverridesConfig() {
+        // ConfigFactory.invalidateCaches() relies on this having the side
+        // effect that it drops all caches
+        EnvVariablesOverridesHolder.envVariables = loadEnvVariablesOverrides();
     }
 
     public static Config defaultReference(final ClassLoader loader) {
